@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:chat/model/user_mode.dart';
 import 'package:chat/service/user_provider.dart';
@@ -24,16 +26,38 @@ class RoomChat extends StatefulWidget {
 
 class _RoomChatState extends State<RoomChat> {
   late TextEditingController _controller;
-
+  late StreamSubscription<QuerySnapshot<Map<String, dynamic>>> msgListener;
+  int index = -1;
   @override
   void initState() {
     _controller = TextEditingController();
+    msgListener = FirebaseFirestore.instance
+        .collection("chat")
+        .doc(widget.docId)
+        .collection("message")
+        .where("isRead", isEqualTo: false)
+        .snapshots()
+        .listen((event) {
+      for (QueryDocumentSnapshot<Map<String, dynamic>> i in event.docs) {
+        if (i["isRead"] == false && widget.userModel.email == i["user"]) {
+          FirebaseFirestore.instance
+              .collection("chat")
+              .doc(widget.docId)
+              .collection("message")
+              .doc(i.id)
+              .update({
+            "isRead": true,
+          });
+        }
+      }
+    });
     super.initState();
   }
 
   @override
   void dispose() {
     _controller.dispose();
+    msgListener.cancel();
     super.dispose();
   }
 
@@ -66,6 +90,7 @@ class _RoomChatState extends State<RoomChat> {
                   .update({
                 "onRoom": false,
               });
+              index = -1;
               Navigator.pop(context);
             },
             icon: const Icon(Icons.arrow_back_ios),
@@ -162,113 +187,137 @@ class _RoomChatState extends State<RoomChat> {
               children: [
                 Expanded(
                   child: GroupedListView<QueryDocumentSnapshot, DateTime>(
-                    reverse: true,
-                    order: GroupedListOrder.DESC,
-                    elements: snapshot.data!.docs,
-                    groupBy: (message) => DateTime(
-                      (message["date"] as Timestamp).toDate().year,
-                      (message["date"] as Timestamp).toDate().month,
-                      (message["date"] as Timestamp).toDate().day,
-                    ),
-                    groupHeaderBuilder: (QueryDocumentSnapshot message) => Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.only(
-                            top: 5,
-                            bottom: 5,
-                            right: 10,
-                            left: 10,
+                      reverse: true,
+                      order: GroupedListOrder.DESC,
+                      elements: snapshot.data!.docs,
+                      groupBy: (message) => DateTime(
+                            (message["date"] as Timestamp).toDate().year,
+                            (message["date"] as Timestamp).toDate().month,
+                            (message["date"] as Timestamp).toDate().day,
                           ),
-                          decoration: BoxDecoration(
-                              color: Colors.yellow,
-                              borderRadius: BorderRadius.circular(5)),
-                          child: Text(
-                            DateFormat.yMMMd().format(
-                                (message["date"] as Timestamp).toDate()),
-                            style: const TextStyle(color: Colors.black),
+                      groupHeaderBuilder: (QueryDocumentSnapshot message) =>
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.only(
+                                  top: 5,
+                                  bottom: 5,
+                                  right: 10,
+                                  left: 10,
+                                ),
+                                decoration: BoxDecoration(
+                                    color: Colors.yellow,
+                                    borderRadius: BorderRadius.circular(5)),
+                                child: Text(
+                                  DateFormat.yMMMd().format(
+                                      (message["date"] as Timestamp).toDate()),
+                                  style: const TextStyle(color: Colors.black),
+                                ),
+                              ),
+                            ],
                           ),
-                        ),
-                      ],
-                    ),
-                    itemBuilder: (_, QueryDocumentSnapshot message) => Row(
-                      mainAxisAlignment: (message["user"] == user.getU.id)
-                          ? MainAxisAlignment.end
-                          : MainAxisAlignment.start,
-                      children: [
-                        Flexible(
-                          child: Padding(
-                              padding: const EdgeInsets.only(
-                                  left: 20, right: 20, top: 20),
-                              child: (message["user"] == user.getU.email)
-                                  ? Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.end,
-                                      children: [
-                                        Container(
-                                            margin: const EdgeInsets.only(
-                                                bottom: 5),
-                                            padding: const EdgeInsets.only(
-                                                top: 5,
-                                                bottom: 5,
-                                                left: 10,
-                                                right: 10),
-                                            decoration: const BoxDecoration(
-                                              color: Colors.blue,
-                                              borderRadius: BorderRadius.only(
-                                                topLeft: Radius.circular(15),
-                                                bottomLeft: Radius.circular(15),
-                                                bottomRight:
-                                                    Radius.circular(15),
-                                              ),
-                                            ),
-                                            child: Text(message["message"])),
-                                        Row(
-                                          mainAxisAlignment:
-                                              MainAxisAlignment.end,
+                      itemBuilder: (_, QueryDocumentSnapshot message) {
+                        return Row(
+                          mainAxisAlignment: (message["user"] == user.getU.id)
+                              ? MainAxisAlignment.end
+                              : MainAxisAlignment.start,
+                          children: [
+                            Flexible(
+                              child: Padding(
+                                  padding: const EdgeInsets.only(
+                                      left: 20, right: 20, top: 20),
+                                  child: (message["user"] == user.getU.email)
+                                      ? Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.end,
                                           children: [
-                                            Text(DateFormat.Hm().format(
-                                                (message["date"] as Timestamp)
-                                                    .toDate())),
-                                            const SizedBox(width: 5),
-                                            const Icon(Icons.check, size: 20)
+                                            Container(
+                                                margin: const EdgeInsets.only(
+                                                    bottom: 5),
+                                                padding: const EdgeInsets.only(
+                                                    top: 5,
+                                                    bottom: 5,
+                                                    left: 10,
+                                                    right: 10),
+                                                decoration: const BoxDecoration(
+                                                  color: Colors.blue,
+                                                  borderRadius:
+                                                      BorderRadius.only(
+                                                    topLeft:
+                                                        Radius.circular(15),
+                                                    bottomLeft:
+                                                        Radius.circular(15),
+                                                    bottomRight:
+                                                        Radius.circular(15),
+                                                  ),
+                                                ),
+                                                child:
+                                                    Text(message["message"])),
+                                            Row(
+                                              mainAxisAlignment:
+                                                  MainAxisAlignment.end,
+                                              children: [
+                                                Text(DateFormat.Hm().format(
+                                                    (message["date"]
+                                                            as Timestamp)
+                                                        .toDate())),
+                                                const SizedBox(width: 5),
+                                                (message["isRead"])
+                                                    ? const Icon(
+                                                        Icons.check,
+                                                        color: Colors.blue,
+                                                        size: 20,
+                                                      )
+                                                    : (message["isSend"])
+                                                        ? const Icon(
+                                                            Icons.check,
+                                                            size: 20,
+                                                          )
+                                                        : const Icon(
+                                                            Icons
+                                                                .access_time_rounded,
+                                                            size: 20,
+                                                          ),
+                                              ],
+                                            )
                                           ],
                                         )
-                                      ],
-                                    )
-                                  : Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Container(
-                                          margin:
-                                              const EdgeInsets.only(bottom: 5),
-                                          padding: const EdgeInsets.only(
-                                              top: 5,
-                                              bottom: 5,
-                                              left: 10,
-                                              right: 10),
-                                          decoration: const BoxDecoration(
-                                            color: Colors.red,
-                                            borderRadius: BorderRadius.only(
-                                              topRight: Radius.circular(15),
-                                              bottomLeft: Radius.circular(15),
-                                              bottomRight: Radius.circular(15),
+                                      : Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Container(
+                                              margin: const EdgeInsets.only(
+                                                  bottom: 5),
+                                              padding: const EdgeInsets.only(
+                                                  top: 5,
+                                                  bottom: 5,
+                                                  left: 10,
+                                                  right: 10),
+                                              decoration: const BoxDecoration(
+                                                color: Colors.red,
+                                                borderRadius: BorderRadius.only(
+                                                  topRight: Radius.circular(15),
+                                                  bottomLeft:
+                                                      Radius.circular(15),
+                                                  bottomRight:
+                                                      Radius.circular(15),
+                                                ),
+                                              ),
+                                              child: Text(message["message"]),
                                             ),
-                                          ),
-                                          child: Text(message["message"]),
-                                        ),
-                                        Text(
-                                          DateFormat.Hm().format(
-                                              (message["date"] as Timestamp)
-                                                  .toDate()),
-                                        )
-                                      ],
-                                    )),
-                        ),
-                      ],
-                    ),
-                  ),
+                                            Text(
+                                              DateFormat.Hm().format(
+                                                  (message["date"] as Timestamp)
+                                                      .toDate()),
+                                            )
+                                          ],
+                                        )),
+                            ),
+                          ],
+                        );
+                      }),
                 ),
                 Container(
                   width: double.infinity,
@@ -323,22 +372,31 @@ class _RoomChatState extends State<RoomChat> {
                           builder: (_, snapshot3) {
                             if (snapshot3.connectionState ==
                                 ConnectionState.waiting) {
-                              return const SizedBox();
+                              return IconButton(
+                                  onPressed: () {},
+                                  icon: const Icon(Icons.send_rounded));
                             }
                             return Flexible(
                               child: IconButton(
                                   onPressed: () async {
-                                    chat
-                                        .doc(widget.docId)
-                                        .collection("message")
-                                        .add({
-                                      "message": _controller.text,
-                                      "user": user.getU.email,
-                                      "date": DateTime.now(),
-                                    });
-                                    _controller.text = "";
                                     FocusManager.instance.primaryFocus
                                         ?.unfocus();
+                                    final text = _controller.text;
+                                    _controller.text = "";
+                                    // await Future.delayed(Duration(seconds: 5));
+                                    final msgDoc = chat
+                                        .doc(widget.docId)
+                                        .collection("message")
+                                        .doc();
+                                    await msgDoc.set({
+                                      "message": text,
+                                      "user": user.getU.email,
+                                      "isRead": false,
+                                      "date": DateTime.now(),
+                                      "isSend": false,
+                                    }).whenComplete(() {
+                                      msgDoc.update({"isSend": true});
+                                    });
                                     final unread = await FirebaseFirestore
                                         .instance
                                         .collection("user")
@@ -366,6 +424,13 @@ class _RoomChatState extends State<RoomChat> {
                                           .doc(widget.docId)
                                           .update({
                                         "date": DateTime.now(),
+                                      });
+                                      chat
+                                          .doc(widget.docId)
+                                          .collection("message")
+                                          .doc(widget.docId)
+                                          .update({
+                                        "isRead": true,
                                       });
                                     }
                                     FirebaseFirestore.instance

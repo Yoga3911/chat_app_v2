@@ -38,9 +38,9 @@ class ListUser extends StatelessWidget {
                   return ListTile(
                     title: Text(userModel.username),
                     onTap: () async {
-                      for (var i
-                          in snapshot.data!.docs) {
-                        if ((i.data() as Map<String, dynamic>)["user_id"] == userModel.id) {
+                      for (var i in snapshot.data!.docs) {
+                        if ((i.data() as Map<String, dynamic>)["user_id"] ==
+                            userModel.id) {
                           FirebaseFirestore.instance
                               .collection("user")
                               .doc(userModel.id)
@@ -68,7 +68,7 @@ class ListUser extends StatelessWidget {
                       doc.set({
                         "members": [user.id, userModel.id]
                       });
-                      await FirebaseFirestore.instance
+                      FirebaseFirestore.instance
                           .collection("user")
                           .doc(user.id)
                           .collection("chats")
@@ -79,7 +79,7 @@ class ListUser extends StatelessWidget {
                         "onRoom": false,
                         "date": DateTime.now(),
                       });
-                      await FirebaseFirestore.instance
+                      FirebaseFirestore.instance
                           .collection("user")
                           .doc(userModel.id)
                           .collection("chats")
