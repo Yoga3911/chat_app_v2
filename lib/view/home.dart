@@ -25,7 +25,6 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   String _connectionStatus = "";
-  late Debouncer _debouncer;
   final Connectivity _connectivity = Connectivity();
   late StreamSubscription<ConnectivityResult> _connectivitySubscription;
 
@@ -33,7 +32,6 @@ class _HomePageState extends State<HomePage> {
   void initState() {
     super.initState();
     initConnectivity();
-    _debouncer = Debouncer(milliseconds: 5000);
     _connectivitySubscription =
         _connectivity.onConnectivityChanged.listen(_updateConnectionStatus);
   }
@@ -61,9 +59,6 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> _updateConnectionStatus(ConnectivityResult result) async {
-    final userProvider = Provider.of<UserProvider>(context, listen: false).getU;
-    final user =
-        FirebaseFirestore.instance.collection("user").doc(userProvider.id);
     switch (result) {
       case ConnectivityResult.mobile:
         _connectionStatus = "Mobile";
@@ -79,18 +74,18 @@ class _HomePageState extends State<HomePage> {
         break;
       case ConnectivityResult.none:
         _connectionStatus = "No internet connection";
-        // ScaffoldMessenger.of(context).showSnackBar(
-        //   const SnackBar(
-        //     content: Text(
-        //       "No internet connection",
-        //       style: TextStyle(
-        //         color: Colors.white,
-        //       ),
-        //     ),
-        //     backgroundColor: Colors.red,
-        //     duration: Duration(seconds: 3),
-        //   ),
-        // );
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              "No internet connection",
+              style: TextStyle(
+                color: Colors.white,
+              ),
+            ),
+            backgroundColor: Colors.red,
+            duration: Duration(seconds: 5),
+          ),
+        );
         // showDialog(
         //   barrierDismissible: false,
         //   context: context,
@@ -231,13 +226,16 @@ class _HomePageState extends State<HomePage> {
                                         decoration: const BoxDecoration(
                                             color: Colors.greenAccent,
                                             shape: BoxShape.circle),
-                                        padding: const EdgeInsets.all(6),
+                                        padding: const EdgeInsets.all(4),
                                         child: Text(
                                           userData["unread"].toString(),
                                           style: const TextStyle(
-                                              color: Colors.black),
+                                            color: Colors.black,
+                                            fontSize: 12,
+                                          ),
                                         ),
                                       ),
+                                      const SizedBox(height: 5),
                                       ((DateTime.now().millisecondsSinceEpoch -
                                                   (userData["date"]
                                                           as Timestamp)
@@ -296,13 +294,16 @@ class _HomePageState extends State<HomePage> {
                                             (snapshot2.data!.docs.last.data()
                                                     as Map<String, dynamic>)[
                                                 "user"])
-                                        ? Text(
-                                            (snapshot2.data!.docs.last.data()
-                                                    as Map<String, dynamic>)[
-                                                "message"],
-                                            style:
-                                                const TextStyle(fontSize: 12),
-                                            maxLines: 1,
+                                        ? Flexible(
+                                            child: Text(
+                                              (snapshot2.data!.docs.last.data()
+                                                      as Map<String, dynamic>)[
+                                                  "message"],
+                                              style:
+                                                  const TextStyle(fontSize: 12),
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
                                           )
                                         : Row(
                                             children: [
@@ -319,14 +320,18 @@ class _HomePageState extends State<HomePage> {
                                                       size: 20,
                                                     ),
                                               const SizedBox(width: 5),
-                                              Text(
-                                                (snapshot2.data!.docs.last
-                                                        .data()
-                                                    as Map<String,
-                                                        dynamic>)["message"],
-                                                style: const TextStyle(
-                                                    fontSize: 12),
-                                                maxLines: 1,
+                                              Flexible(
+                                                child: Text(
+                                                  (snapshot2.data!.docs.last
+                                                          .data()
+                                                      as Map<String,
+                                                          dynamic>)["message"],
+                                                  style: const TextStyle(
+                                                      fontSize: 12),
+                                                  maxLines: 1,
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
+                                                ),
                                               ),
                                             ],
                                           )
