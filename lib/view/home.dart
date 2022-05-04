@@ -25,6 +25,7 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   String _connectionStatus = "";
+  late Debouncer _debouncer;
   final Connectivity _connectivity = Connectivity();
   late StreamSubscription<ConnectivityResult> _connectivitySubscription;
 
@@ -32,7 +33,7 @@ class _HomePageState extends State<HomePage> {
   void initState() {
     super.initState();
     initConnectivity();
-
+    _debouncer = Debouncer(milliseconds: 5000);
     _connectivitySubscription =
         _connectivity.onConnectivityChanged.listen(_updateConnectionStatus);
   }
@@ -43,10 +44,8 @@ class _HomePageState extends State<HomePage> {
     super.dispose();
   }
 
-  // Platform messages are asynchronous, so we initialize in an async method.
   Future<void> initConnectivity() async {
     late ConnectivityResult result;
-    // Platform messages may fail, so we use a try/catch PlatformException.
     try {
       result = await _connectivity.checkConnectivity();
     } on PlatformException catch (e) {
@@ -54,9 +53,6 @@ class _HomePageState extends State<HomePage> {
       return;
     }
 
-    // If the widget was removed from the tree while the asynchronous platform
-    // message was in flight, we want to discard the reply rather than calling
-    // setState to update our non-existent appearance.
     if (!mounted) {
       return Future.value(null);
     }
@@ -65,6 +61,9 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> _updateConnectionStatus(ConnectivityResult result) async {
+    final userProvider = Provider.of<UserProvider>(context, listen: false).getU;
+    final user =
+        FirebaseFirestore.instance.collection("user").doc(userProvider.id);
     switch (result) {
       case ConnectivityResult.mobile:
         _connectionStatus = "Mobile";
@@ -79,7 +78,19 @@ class _HomePageState extends State<HomePage> {
         _connectionStatus = "Wifi";
         break;
       case ConnectivityResult.none:
-        _connectionStatus = "None";
+        _connectionStatus = "No internet connection";
+        // ScaffoldMessenger.of(context).showSnackBar(
+        //   const SnackBar(
+        //     content: Text(
+        //       "No internet connection",
+        //       style: TextStyle(
+        //         color: Colors.white,
+        //       ),
+        //     ),
+        //     backgroundColor: Colors.red,
+        //     duration: Duration(seconds: 3),
+        //   ),
+        // );
         // showDialog(
         //   barrierDismissible: false,
         //   context: context,
@@ -109,6 +120,7 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
+    // _debouncer.run(() => initConnectivity());
     final auth = Provider.of<AuthProvider>(context, listen: false);
     final user = Provider.of<UserProvider>(context, listen: false).getU;
     final CollectionReference getUser =
@@ -160,6 +172,7 @@ class _HomePageState extends State<HomePage> {
       ),
       body: Column(
         children: [
+          Text('Connection Status: ${_connectionStatus.toString()}'),
           StreamBuilder<QuerySnapshot>(
             stream: getUser
                 .doc(user.id)
@@ -274,39 +287,49 @@ class _HomePageState extends State<HomePage> {
                                       fontWeight: FontWeight.bold),
                                 ),
                                 const SizedBox(height: 3),
-                                (user.email != (snapshot2.data!.docs.last.data()
-                                            as Map<String, dynamic>)["user"])
-                                    ? Text(
-                                        (snapshot2.data!.docs.last.data()
-                                            as Map<String, dynamic>)["message"],
-                                        style: const TextStyle(fontSize: 12),
-                                        maxLines: 1,
+                                ((userData["isTyping"]))
+                                    ? const Text(
+                                        "Sedang mengetik ...",
+                                        style: TextStyle(fontSize: 12),
                                       )
-                                    : Row(
-                                        children: [
-                                          ((snapshot2.data!.docs.last.data()
-                                                      as Map<String, dynamic>)[
-                                                  "isRead"])
-                                              ? const Icon(
-                                                  Icons.check,
-                                                  color: Colors.blue,
-                                                  size: 20,
-                                                )
-                                              : const Icon(
-                                                  Icons.check,
-                                                  size: 20,
-                                                ),
-                                          const SizedBox(width: 5),
-                                          Text(
+                                    : (user.email !=
+                                            (snapshot2.data!.docs.last.data()
+                                                    as Map<String, dynamic>)[
+                                                "user"])
+                                        ? Text(
                                             (snapshot2.data!.docs.last.data()
                                                     as Map<String, dynamic>)[
                                                 "message"],
                                             style:
                                                 const TextStyle(fontSize: 12),
                                             maxLines: 1,
-                                          ),
-                                        ],
-                                      )
+                                          )
+                                        : Row(
+                                            children: [
+                                              ((snapshot2.data!.docs.last.data()
+                                                      as Map<String,
+                                                          dynamic>)["isRead"])
+                                                  ? const Icon(
+                                                      Icons.check,
+                                                      color: Colors.blue,
+                                                      size: 20,
+                                                    )
+                                                  : const Icon(
+                                                      Icons.check,
+                                                      size: 20,
+                                                    ),
+                                              const SizedBox(width: 5),
+                                              Text(
+                                                (snapshot2.data!.docs.last
+                                                        .data()
+                                                    as Map<String,
+                                                        dynamic>)["message"],
+                                                style: const TextStyle(
+                                                    fontSize: 12),
+                                                maxLines: 1,
+                                              ),
+                                            ],
+                                          )
                               ],
                             ),
                             onTap: () {
@@ -347,7 +370,6 @@ class _HomePageState extends State<HomePage> {
               );
             },
           ),
-          Text('Connection Status: ${_connectionStatus.toString()}')
         ],
       ),
     );

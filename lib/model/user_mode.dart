@@ -30,6 +30,6 @@ class UserModel {
         "email": email,
         "password": password,
         "image": image,
-        "isActice": isActive,
+        "isActive": isActive,
     };
 }

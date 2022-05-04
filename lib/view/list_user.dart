@@ -18,7 +18,7 @@ class ListUser extends StatelessWidget {
         stream: getUser.doc(user.id).collection("chats").snapshots(),
         builder: (_, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return const CircularProgressIndicator();
+            return const Center(child: CircularProgressIndicator());
           }
           return StreamBuilder<QuerySnapshot>(
             stream: FirebaseFirestore.instance.collection("user").snapshots(),
@@ -77,6 +77,7 @@ class ListUser extends StatelessWidget {
                         "user_id": userModel.id,
                         "unread": 0,
                         "onRoom": false,
+                        "isTyping": false,
                         "date": DateTime.now(),
                       });
                       FirebaseFirestore.instance
@@ -87,6 +88,7 @@ class ListUser extends StatelessWidget {
                           .set({
                         "user_id": user.id,
                         "unread": 0,
+                        "isTyping": false,
                         "onRoom": true,
                         "date": DateTime.now(),
                       });

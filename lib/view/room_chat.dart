@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:developer';
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:chat/model/user_mode.dart';
@@ -24,10 +25,24 @@ class RoomChat extends StatefulWidget {
   State<RoomChat> createState() => _RoomChatState();
 }
 
+class Debouncer {
+  final int milliseconds;
+  VoidCallback? action;
+  Timer? _timer;
+  Debouncer({required this.milliseconds});
+  run(VoidCallback action) {
+    if (_timer != null) {
+      _timer?.cancel();
+    }
+    _timer = Timer(Duration(milliseconds: milliseconds), action);
+  }
+}
+
 class _RoomChatState extends State<RoomChat> {
   late TextEditingController _controller;
   late StreamSubscription<QuerySnapshot<Map<String, dynamic>>> msgListener;
-  int index = -1;
+  late Stream time;
+
   @override
   void initState() {
     _controller = TextEditingController();
@@ -37,20 +52,22 @@ class _RoomChatState extends State<RoomChat> {
         .collection("message")
         .where("isRead", isEqualTo: false)
         .snapshots()
-        .listen((event) {
-      for (QueryDocumentSnapshot<Map<String, dynamic>> i in event.docs) {
-        if (i["isRead"] == false && widget.userModel.email == i["user"]) {
-          FirebaseFirestore.instance
-              .collection("chat")
-              .doc(widget.docId)
-              .collection("message")
-              .doc(i.id)
-              .update({
-            "isRead": true,
-          });
+        .listen(
+      (event) {
+        for (QueryDocumentSnapshot<Map<String, dynamic>> i in event.docs) {
+          if (i["isRead"] == false && widget.userModel.email == i["user"]) {
+            FirebaseFirestore.instance
+                .collection("chat")
+                .doc(widget.docId)
+                .collection("message")
+                .doc(i.id)
+                .update({
+              "isRead": true,
+            });
+          }
         }
-      }
-    });
+      },
+    );
     super.initState();
   }
 
@@ -61,6 +78,7 @@ class _RoomChatState extends State<RoomChat> {
     super.dispose();
   }
 
+  final _debouncer = Debouncer(milliseconds: 2000);
   @override
   Widget build(BuildContext context) {
     final CollectionReference chat =
@@ -90,7 +108,9 @@ class _RoomChatState extends State<RoomChat> {
                   .update({
                 "onRoom": false,
               });
-              index = -1;
+              // streamController.close();
+              // time.;
+              setState(() {});
               Navigator.pop(context);
             },
             icon: const Icon(Icons.arrow_back_ios),
@@ -126,45 +146,62 @@ class _RoomChatState extends State<RoomChat> {
                       children: [
                         Text(widget.userModel.username),
                         const SizedBox(height: 5),
-                        (userData.isActive)
-                            ? Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
-                                children: [
-                                  const Text(
-                                    "online",
-                                    style: TextStyle(fontSize: 10),
-                                  ),
-                                  Container(
-                                    margin: const EdgeInsets.only(left: 3),
-                                    height: 5,
-                                    width: 5,
-                                    decoration: const BoxDecoration(
-                                      color: Colors.green,
-                                      shape: BoxShape.circle,
-                                    ),
-                                  )
-                                ],
-                              )
-                            : Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
-                                children: [
-                                  const Text(
-                                    "offline",
-                                    style: TextStyle(fontSize: 10),
-                                  ),
-                                  Container(
-                                    margin: const EdgeInsets.only(left: 3),
-                                    height: 5,
-                                    width: 5,
-                                    decoration: const BoxDecoration(
-                                      color: Colors.red,
-                                      shape: BoxShape.circle,
-                                    ),
-                                  )
-                                ],
-                              ),
+                        StreamBuilder<DocumentSnapshot>(
+                            stream: FirebaseFirestore.instance
+                                .collection("user")
+                                .doc(user.getU.id)
+                                .collection("chats")
+                                .doc(widget.docId)
+                                .snapshots(),
+                            builder: (_, snapshot) {
+                              if (!snapshot.hasData) {
+                                return const SizedBox();
+                              }
+                              return (snapshot.data!["isTyping"])? const Text(
+                                          "Sedang mengetik ...",
+                                          style: TextStyle(fontSize: 10),
+                                        ) : (userData.isActive)
+                                  ? Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        const Text(
+                                          "online",
+                                          style: TextStyle(fontSize: 10),
+                                        ),
+                                        Container(
+                                          margin:
+                                              const EdgeInsets.only(left: 3),
+                                          height: 5,
+                                          width: 5,
+                                          decoration: const BoxDecoration(
+                                            color: Colors.green,
+                                            shape: BoxShape.circle,
+                                          ),
+                                        )
+                                      ],
+                                    )
+                                  : Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        const Text(
+                                          "offline",
+                                          style: TextStyle(fontSize: 10),
+                                        ),
+                                        Container(
+                                          margin:
+                                              const EdgeInsets.only(left: 3),
+                                          height: 5,
+                                          width: 5,
+                                          decoration: const BoxDecoration(
+                                            color: Colors.red,
+                                            shape: BoxShape.circle,
+                                          ),
+                                        )
+                                      ],
+                                    );
+                            })
                       ],
                     ),
                   ],
@@ -296,7 +333,7 @@ class _RoomChatState extends State<RoomChat> {
                                                   left: 10,
                                                   right: 10),
                                               decoration: const BoxDecoration(
-                                                color: Colors.red,
+                                                color: Color.fromARGB(255, 113, 113, 113),
                                                 borderRadius: BorderRadius.only(
                                                   topRight: Radius.circular(15),
                                                   bottomLeft:
@@ -339,6 +376,32 @@ class _RoomChatState extends State<RoomChat> {
                             ),
                             child: Scrollbar(
                               child: TextField(
+                                onChanged: (val) {
+                                  if (val.isNotEmpty) {
+                                    FirebaseFirestore.instance
+                                        .collection("user")
+                                        .doc(widget.userModel.id)
+                                        .collection("chats")
+                                        .doc(widget.docId)
+                                        .update(
+                                      {
+                                        "isTyping": true,
+                                      },
+                                    );
+                                  }
+                                  _debouncer.run(
+                                    () => FirebaseFirestore.instance
+                                        .collection("user")
+                                        .doc(widget.userModel.id)
+                                        .collection("chats")
+                                        .doc(widget.docId)
+                                        .update(
+                                      {
+                                        "isTyping": false,
+                                      },
+                                    ),
+                                  );
+                                },
                                 controller: _controller,
                                 cursorColor: Colors.red,
                                 keyboardType: TextInputType.multiline,
@@ -417,7 +480,7 @@ class _RoomChatState extends State<RoomChat> {
                                         "date": DateTime.now(),
                                       });
                                     } else {
-                                      FirebaseFirestore.instance
+                                      await FirebaseFirestore.instance
                                           .collection("user")
                                           .doc(widget.userModel.id)
                                           .collection("chats")
@@ -428,7 +491,7 @@ class _RoomChatState extends State<RoomChat> {
                                       chat
                                           .doc(widget.docId)
                                           .collection("message")
-                                          .doc(widget.docId)
+                                          .doc(msgDoc.id)
                                           .update({
                                         "isRead": true,
                                       });
